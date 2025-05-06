@@ -1,7 +1,9 @@
 import os
 import shutil
+import re
 from typing import List
-
+from tqdm import tqdm  
+import difflib
 
 class Aut:
     def __init__(self, bol_dir:  str, dest: str = 'Arquivos') -> None:
@@ -40,11 +42,7 @@ class Aut:
                 os.mkdir(dest_dir)
             # Adiciona ao nome do arquivo a pasta onde está, para poder ser encontrado.
             old_path = f'{self.bol_dir}/{arquivo}'
-            """
-            O nome dos arquivos ficam grandes demais, por causa do nome das pastas, gerando erro na hora de mudar,
-            por isso, no nome dos arquivos será salvo apenas a data e o número do boleto, sendo estes
-            arquivo.split('-')[0:3] e arquivo.split('-')[-1], respectivamente.
-            """
+      
             new_path = f'{dest_dir}/{arquivo.split('-')[0]}-{arquivo.split('-')[-1]}'
             # Move o arquivo atual para a sua pasta.
             shutil.copy(old_path, new_path)
@@ -64,64 +62,40 @@ if __name__ == "__main__":
         print(e)
         input()
 
-import os
-import shutil
-import re
-from typing import List
 
 class OrganizadorDocumentos:
     def __init__(self, nfs_dir: str, dest_dir: str = 'Arquivos/NOTA_FISCAL') -> None:
-        """
-        Inicializa o organizador de documentos
-        
-        Args:
-            nfs_dir (str): Diretório das notas fiscais
-            dest_dir (str): Diretório de destino (padrão: 'Documentos_Organizados')
-        """
+       
         self.nfs_dir = os.path.abspath(nfs_dir)
         self.dest_dir = os.path.abspath(dest_dir)
         
     def _extrair_nome_empresa(self, nome_arquivo: str) -> str:
-        """
-        Extrai o nome da empresa do nome do arquivo
-        
-        Args:
-            nome_arquivo (str): Nome do arquivo PDF
-            
-        Returns:
-            str: Nome da empresa extraído
-        """
-        # Remove extensão e caracteres especiais
+       
         nome_sem_ext = os.path.splitext(nome_arquivo)[0]
         nome_limpo = re.sub(r'[^a-zA-Z0-9 ]', ' ', nome_sem_ext)
         
-        # Divide em partes e pega a primeira parte significativa
         partes = [p for p in nome_limpo.split() if not p.isdigit()]
         return ' '.join(partes[:2]).strip() if partes else 'OUTROS'
     
     def _extrair_numero_final(self, nome_arquivo: str) -> str:
-        """
-        Extrai a última sequência numérica do nome do arquivo
-        
-        Args:
-            nome_arquivo (str): Nome do arquivo PDF
-            
-        Returns:
-            str: Última sequência numérica encontrada
-        """
+     
         numeros = re.findall(r'\d+', nome_arquivo)
         return numeros[-1] if numeros else '0000'
     
-    def _criar_pasta_segura(self, caminho: str) -> bool:
-        """
-        Cria uma pasta com tratamento de erros
+    def _remover_numeros_finais(self, nome_arquivo: str) -> str:
+        # Remove a extensão do arquivo
+        nome_sem_ext = os.path.splitext(nome_arquivo)[0]
         
-        Args:
-            caminho (str): Caminho da pasta a ser criada
-            
-        Returns:
-            bool: True se criada com sucesso, False caso contrário
-        """
+        # Remove números no final do nome
+        nome_sem_numeros_finais = re.sub(r'\d+$', '', nome_sem_ext)
+        
+        # Remove espaços em excesso
+        nome_limpo = nome_sem_numeros_finais.strip()
+        
+        return nome_limpo
+    
+    def _criar_pasta_segura(self, caminho: str) -> bool:
+      
         try:
             os.makedirs(caminho, exist_ok=True)
             return True
@@ -130,33 +104,28 @@ class OrganizadorDocumentos:
             return False
     
     def processar_notas_fiscais(self) -> None:
-        """
-        Processa todos os arquivos PDF de notas fiscais, organizando em pastas por empresa
-        e renomeando os arquivos conforme especificado
-        """
+       
         if not os.path.exists(self.nfs_dir):
             print(f"Diretório de notas fiscais não encontrado: {self.nfs_dir}")
             return
         
-        # Criar diretório principal se não existir
         self._criar_pasta_segura(self.dest_dir)
         
-        # Processar cada arquivo PDF
-        for arquivo in os.listdir(self.nfs_dir):
-            if not arquivo.lower().endswith('.pdf'):
-                continue
+        arquivos = [arq for arq in os.listdir(self.nfs_dir) if arq.lower().endswith('.pdf')]
+        
+        # Usando tqdm para mostrar progresso
+        for arquivo in tqdm(arquivos, desc="Processando notas fiscais"):
                 
             try:
-                # Extrair informações do nome do arquivo
                 nome_empresa = self._extrair_nome_empresa(arquivo)
-                numero_final = self._extrair_numero_final(arquivo)
                 
-                # Definir caminhos
+                # Novo nome usando o nome completo sem números finais
+                nome_sem_numeros = self._remover_numeros_finais(arquivo)
+                novo_nome = f"{nome_sem_numeros}.pdf"
+                
                 pasta_empresa = os.path.join(self.dest_dir, nome_empresa)
-                novo_nome = f"{nome_empresa.split()[0]}_{numero_final}.pdf"
                 caminho_destino = os.path.join(pasta_empresa, novo_nome)
                 
-                # Criar pasta e copiar arquivo
                 if self._criar_pasta_segura(pasta_empresa):
                     caminho_origem = os.path.join(self.nfs_dir, arquivo)
                     shutil.copy2(caminho_origem, caminho_destino)
@@ -166,9 +135,7 @@ class OrganizadorDocumentos:
                 print(f"Erro ao processar {arquivo}: {e}")
     
     def executar(self) -> None:
-        """
-        Executa o fluxo completo de organização
-        """
+       
         print(f"Iniciando organização de notas fiscais...")
         print(f"Origem: {self.nfs_dir}")
         print(f"Destino: {self.dest_dir}\n")
@@ -179,11 +146,9 @@ class OrganizadorDocumentos:
 
 if __name__ == "__main__":
     try:
-        # Configuração dos diretórios
         diretorio_notas = 'CONDOMINIAIS/NOTA_FISCAL'
         diretorio_destino = 'Arquivos/NOTA_FISCAL'
         
-        # Executar organização
         organizador = OrganizadorDocumentos(diretorio_notas, diretorio_destino)
         organizador.executar()
         
@@ -192,10 +157,6 @@ if __name__ == "__main__":
     finally:
         input("Pressione Enter para sair...")
 
-import os
-import shutil
-import re
-import difflib
 
 class OrganizadorDocumentosPorRelacao:
     def __init__(self, boletos_dir='Arquivos/BOLETOS', notas_dir='Arquivos/NOTA_FISCAL', destino='Arquivos/ORGANIZADOS'):
