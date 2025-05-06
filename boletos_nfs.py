@@ -1,7 +1,7 @@
 import os
 import shutil
 from typing import List
-
+import re
 
 class Aut:
     def __init__(self, bol_dir:  str, dest: str = 'Arquivos') -> None:
@@ -64,10 +64,7 @@ if __name__ == "__main__":
         print(e)
         input()
 
-import os
-import shutil
-import re
-from typing import List
+
 
 class OrganizadorDocumentos:
     def __init__(self, nfs_dir: str, dest_dir: str = 'Arquivos/NOTA_FISCAL') -> None:
